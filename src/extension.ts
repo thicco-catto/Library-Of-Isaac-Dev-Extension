@@ -64,14 +64,71 @@ function readFolderContentsOnlyFolders(prefix: string, path: string) : string{
 }
 
 
+function readDocsFromFile(file: string): string{
+	const fileContents = fs.readFileSync(file, 'utf-8');
+	const fileLines = fileContents.split("\n");
+
+	let fileDocs = "";
+	let docsPerFunction = "";
+
+	let isReadingDocs = false;
+	let isReadingEnum = false;
+
+	fileLines.forEach(element => {
+		if(isReadingDocs){
+			if(isReadingEnum){
+				docsPerFunction += element + "\n";
+				if(element.startsWith("}")){
+					fileDocs += docsPerFunction + "\n";
+					isReadingDocs = false;
+				}
+			}else{
+				if(element.startsWith("---")){
+					docsPerFunction += element + "\n";
+				}else{
+					if(element.startsWith("function TSIL")){
+						docsPerFunction += element + "\nend\n\n";
+
+						fileDocs += docsPerFunction;
+					}
+
+					isReadingDocs = false;
+				}
+			}
+		}else{
+			if(element.startsWith("---")){
+				docsPerFunction = "";
+				docsPerFunction += element + "\n";
+				isReadingDocs = true;
+				isReadingEnum = element.startsWith("---@enum") || element.startsWith("--- @enum");
+			}
+		}
+	});
+
+	return fileDocs;
+}
+
+
+function readDocsFromDirectory(path: string): string{
+	let docs = "";
+
+	fs.readdirSync(path).forEach(file => {
+		if(file.endsWith(".lua")){
+			docs += readDocsFromFile(path + "/" + file);
+		}else if(fs.lstatSync(path + "/" + file).isDirectory()){
+			docs += readDocsFromDirectory(path + "/" + file);
+		}
+	});
+
+	return docs;
+}
+
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('library-of-isaac-dev-extension.createScriptsFile', () => {
+	let createScripts = vscode.commands.registerCommand('library-of-isaac-dev-extension.createScriptsFile', () => {
 		// The code you place here will be executed every time your command is executed
 		// Display a message box to the user
 		const workspaceEdit = new vscode.WorkspaceEdit();
@@ -129,7 +186,46 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.showInformationMessage('Created scripts file');
 	});
 
-	context.subscriptions.push(disposable);
+	context.subscriptions.push(createScripts);
+
+
+	let createDocs = vscode.commands.registerCommand('library-of-isaac-dev-extension.createDocsFile', () => {
+		const workspaceEdit = new vscode.WorkspaceEdit();
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+
+		if(workspaceFolders === undefined){ return; }
+
+		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
+
+		const tsilPath = findTSILFile(workspacePath);
+
+		if(tsilPath === undefined) { return; }
+
+		let docsContent = `---@diagnostic disable: duplicate-doc-alias
+_G.TSIL = {}
+
+`;
+
+		fs.readdirSync(tsilPath).forEach(file => {
+			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
+				docsContent = docsContent + readDocsFromDirectory(tsilPath + "/" + file);
+			}
+		});
+
+		const filePath = vscode.Uri.file(tsilPath + '/docs.lua');
+		const encoder = new TextEncoder();
+
+		workspaceEdit.createFile(filePath, { 
+			overwrite: true,
+			ignoreIfExists: true,
+			contents: encoder.encode(docsContent)
+		});
+		vscode.workspace.applyEdit(workspaceEdit);
+
+		vscode.window.showInformationMessage('Created docs file');
+	});
+
+	context.subscriptions.push(createDocs);
 }
 
 // This method is called when your extension is deactivated
