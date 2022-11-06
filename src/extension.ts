@@ -3,6 +3,7 @@
 import { TextEncoder } from 'util';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as TSILParser from './TSILParser';
 
 
 function findTSILFile(path: string) : string|undefined{
@@ -124,6 +125,24 @@ function readDocsFromDirectory(path: string): string{
 }
 
 
+function readDependenciesFromFile(file: string){
+	const fileContents = fs.readFileSync(file, 'utf-8');
+	TSILParser.parseLuaFile(fileContents);
+}
+
+
+function readDependenciesFromDirectory(path: string){
+
+	fs.readdirSync(path).forEach(file => {
+		if(file.endsWith(".lua")){
+			readDependenciesFromFile(path + "/" + file);
+		}else if(fs.lstatSync(path + "/" + file).isDirectory()){
+			readDependenciesFromDirectory(path + "/" + file);
+		}
+	});
+}
+
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -226,6 +245,60 @@ _G.TSIL = {}
 	});
 
 	context.subscriptions.push(createDocs);
+
+
+	let createDependencies = vscode.commands.registerCommand('library-of-isaac-dev-extension.createDependenciesFile', () => {
+		const workspaceEdit = new vscode.WorkspaceEdit();
+		const workspaceFolders = vscode.workspace.workspaceFolders;
+
+		if(workspaceFolders === undefined){ return; }
+
+		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
+
+		const tsilPath = findTSILFile(workspacePath);
+
+		if(tsilPath === undefined) { return; }
+
+		TSILParser.resetModulesPerFunction();
+
+		fs.readdirSync(tsilPath).forEach(file => {
+			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
+				readDependenciesFromDirectory(tsilPath + "/" + file);
+			}
+		});
+
+		const dependencies = TSILParser.getModulesPerFunction();
+		const dependenciesSerializable: {[key: string]: string[]} = {};
+
+		for (const key in dependencies) {
+			if (Object.prototype.hasOwnProperty.call(dependencies, key)) {
+				const element = dependencies[key];
+				dependenciesSerializable[key] = [];
+
+				element.forEach(s => {
+					if(s !== "TSIL"){
+						dependenciesSerializable[key].push(s);
+					}
+				});
+			}
+		}
+
+		const dependenciesJson = JSON.stringify(dependenciesSerializable);
+
+		const filePath = vscode.Uri.file(tsilPath + '/dependencies.json');
+		const encoder = new TextEncoder();
+
+		workspaceEdit.createFile(filePath, { 
+			overwrite: true,
+			ignoreIfExists: true,
+			contents: encoder.encode(dependenciesJson)
+		});
+		vscode.workspace.applyEdit(workspaceEdit);
+
+		vscode.window.showInformationMessage('Created dependencies file');
+	});
+
+	context.subscriptions.push(createDependencies);
 }
 
 // This method is called when your extension is deactivated
