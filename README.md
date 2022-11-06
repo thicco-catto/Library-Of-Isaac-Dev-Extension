@@ -16,3 +16,7 @@ Initial release of Library Of Isaac Dev Extension
 ## 1.1.0
 
 Added Create Dependencies File and Create Docs File 
+
+## 1.2.0
+
+Fixed Dependencies not being created properly for callback files
