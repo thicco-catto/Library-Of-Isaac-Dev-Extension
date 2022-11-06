@@ -3,6 +3,7 @@
 ## Features
 
 This extension allows you to create the scripts file necessary for the Library Of Isaac automatically, so you don't have to add or remove lines to the table when you create new files.
+Also creates the dependencies.json and the docs.lua, used in the other extension.
 
 
 
@@ -11,3 +12,7 @@ This extension allows you to create the scripts file necessary for the Library O
 ### 1.0.0
 
 Initial release of Library Of Isaac Dev Extension
+
+## 1.1.0
+
+Added Create Dependencies File and Create Docs File 
