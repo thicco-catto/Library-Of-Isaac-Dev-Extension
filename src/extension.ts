@@ -127,6 +127,7 @@ function readDocsFromDirectory(path: string): string{
 
 function readDependenciesFromFile(file: string){
 	const fileContents = fs.readFileSync(file, 'utf-8');
+
 	TSILParser.parseLuaFile(fileContents);
 }
 

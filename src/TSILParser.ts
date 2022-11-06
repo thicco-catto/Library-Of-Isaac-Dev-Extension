@@ -186,7 +186,14 @@ export function parseLuaFile(luaString : string){
         onCreateScope: onCreateScope,
         onDestroyScope: onDestroyScope
     });
-    //console.log(JSON.stringify(ast, null, 4));
+
+    const lines = luaString.split("\n");
+    lines.forEach(line =>{
+        if(line.startsWith("--##") && !line.startsWith("--##use")){
+            const callbackName = line.replace("--##", "").trim();
+            modulesPerFunction["TSIL.Enums.CustomCallback." + callbackName] = treeToSet(modulesUsed);
+        }
+    });
 }
 
 
