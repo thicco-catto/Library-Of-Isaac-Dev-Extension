@@ -20,3 +20,7 @@ Added Create Dependencies File and Create Docs File
 ## 1.2.0
 
 Fixed Dependencies not being created properly for callback files
+
+## 1.3.0
+
+Added Create Modules File command
