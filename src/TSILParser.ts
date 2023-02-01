@@ -1,12 +1,13 @@
 import * as parser from "luaparse";
 
 interface TreeNode {
-    key: string; // type for unknown keys.
-    children: TreeNode[]; // type for a known property.
+    key: string;
+    children: TreeNode[];
 }
 
 let modulesPerFunction: {[name: string]: Set<string>} = {};
-
+let commonModules: Set<string> = new Set();
+let hasFoundTSILFunction: boolean = false;
 let modulesUsed: TreeNode = {key: "TSIL", children: []};
 let currentLevel = 0;
 let scopeVariables: {[level: number] : {[id: string] : string;}; };
@@ -78,83 +79,136 @@ function addTSILModuleToTree(module: string){
 }
 
 
+function parseEnumsModuleName(module: string): string{
+    if(module.startsWith("TSIL.Enums") && !module.startsWith("TSIL.Enums.CustomCallback")){
+        //Only get the first 3 strings:
+        //  -1st is TSIL
+        //  -2nd is Enums
+        //  -3rd is the name of the enum
+        return module.split(".").slice(0, 3).join(".");
+    }
+
+    return module;
+}
+
+
+function getModulesSetForFunction(identifier: string){
+    const modules: Set<string> = new Set();
+
+    commonModules.forEach(module => {
+        const parsedModuleName = parseEnumsModuleName(module);
+        if(identifier !== module && identifier !== parsedModuleName){
+            modules.add(parsedModuleName);
+        }
+    });
+    treeToSet(modulesUsed).forEach(module => {
+        const parsedModuleName = parseEnumsModuleName(module);
+        if(identifier !== module && identifier !== parsedModuleName){
+            modules.add(parsedModuleName);
+        }
+    });
+
+    return modules;
+}
+
+
+function onMemberExpression(memberExpression: parser.MemberExpression){
+    const identifer = getIdentifierFromMemberExpression(memberExpression);
+
+    if(identifer.startsWith("TSIL") && !identifer.startsWith("TSIL.Enums.CustomCallback")){
+        addTSILModuleToTree(identifer);
+    }
+}
+
+
+function onFunctionDeclaration(functionDeclaration: parser.FunctionDeclaration){
+    if(functionDeclaration.identifier === undefined || functionDeclaration.identifier === null){ return; }
+
+    if(functionDeclaration.identifier.type !== "MemberExpression"){ return; }
+
+    const identifer = getIdentifierFromMemberExpression(functionDeclaration.identifier);
+
+    if(!identifer.startsWith("TSIL")){ return; }
+
+    if(!hasFoundTSILFunction){
+        commonModules = treeToSet(modulesUsed);
+        resetUsedModules();
+    }
+
+    modulesPerFunction[identifer] = getModulesSetForFunction(identifer);
+
+    resetUsedModules();
+}
+
+
+function onLocalStatement(localStatement: parser.LocalStatement){
+    for (let i = 0; i < localStatement.variables.length; i++) {
+        const variable = localStatement.variables[i];
+        const init = localStatement.init[i];
+
+        if(init === undefined){ continue; }
+
+        let value: string = "";
+
+        if(init.type === "Identifier"){
+            //Is single identifier
+            if(isIdentifierTSILModule(init.name)){
+                value = getTSILModuleFromIdentifier(init.name);
+            }
+        }else if(init.type === "MemberExpression"){
+            //Is indexing table
+            value = getIdentifierFromMemberExpression(init);
+        }
+
+        if(value.startsWith("TSIL")){
+            scopeVariables[currentLevel][variable.name] = value;
+            addTSILModuleToTree(value);
+        }
+    }
+}
+
+
+function onCallExpression(callExpression: parser.CallExpression){
+    if(callExpression.base.type !== "MemberExpression"){ return; }
+
+    const identifer = getIdentifierFromMemberExpression(callExpression.base);
+
+    if(identifer !== "TSIL.__AddInternalCallback"){ return; }
+
+    callExpression.arguments.forEach(argument => {
+        if(argument.type !== "MemberExpression"){ return; }
+
+        const argumentIdentifier = getIdentifierFromMemberExpression(argument);
+
+        if(!argumentIdentifier.startsWith("TSIL.Enums.CustomCallback")){ return; }
+
+        addTSILModuleToTree(argumentIdentifier);
+    });
+}
+
+
 function onCreateNode(node: parser.Node){
     switch(node.type){
-        case 'MemberExpression':{
-            const value = getIdentifierFromMemberExpression(node);
-
-            if(value.startsWith("TSIL")){
-                addTSILModuleToTree(value);
-            }
+        case "CallExpression":{
+            onCallExpression(node);
 
             break;
         }
-        case 'CallExpression':{
-            const args = node.arguments;
 
-            args.forEach(argument => {
-                if(argument.type === "MemberExpression"){
-                    const value = getIdentifierFromMemberExpression(argument);
+        case "MemberExpression":{
+            onMemberExpression(node);            
 
-                    if(value.startsWith("TSIL")){
-                        addTSILModuleToTree(value);
-                    }
-                }
-            });
+            break;
+        }
+        
+        case "FunctionDeclaration":{
+            onFunctionDeclaration(node);
 
-            if(node.base.type === "MemberExpression"){
-                const value = getIdentifierFromMemberExpression(node.base);
-
-                if(value.startsWith("TSIL")){
-                    addTSILModuleToTree(value);
-                }
-            }else if(node.base.type === "Identifier"){
-                if(localFunctions[node.base.name] !== undefined){
-                    localFunctions[node.base.name].forEach(value =>{
-                        addTSILModuleToTree(value);
-                    });
-                }
-            }
-            
             break;
         }
 
         case 'LocalStatement':{
-            for (let i = 0; i < node.variables.length; i++) {
-                const variable = node.variables[i];
-                const init = node.init[i];
-
-                if(init === undefined){ continue; }
-
-                let value: string = "";
-
-                if(init.type === "Identifier"){
-                    //Is single identifier
-                    if(isIdentifierTSILModule(init.name)){
-                        value = getTSILModuleFromIdentifier(init.name);
-                    }
-                }else if(init.type === "MemberExpression"){
-                    //Is indexing table
-                    value = getIdentifierFromMemberExpression(init);
-                }
-
-                if(value.startsWith("TSIL")){
-                    scopeVariables[currentLevel][variable.name] = value;
-                    addTSILModuleToTree(value);
-                }
-            }
-            break;
-        }
-
-        case 'FunctionDeclaration': {
-            if(node.identifier === undefined || node.identifier === null){ break; }
-
-            if(node.identifier.type === "MemberExpression"){
-                modulesPerFunction[getIdentifierFromMemberExpression(node.identifier)] = treeToSet(modulesUsed);
-            }else{
-                localFunctions[node.identifier.name] = treeToSet(modulesUsed);
-            }
-            resetUsedModules();
+            onLocalStatement(node);
 
             break;
         }
@@ -179,6 +233,9 @@ export function parseLuaFile(luaString : string){
     // eslint-disable-next-line @typescript-eslint/naming-convention
     scopeVariables = {0: {}};
     localFunctions = {};
+    resetUsedModules();
+    commonModules = new Set();
+    hasFoundTSILFunction = false;
     parser.parse(luaString, {
         luaVersion: "5.3",
         scope: true,
@@ -191,7 +248,8 @@ export function parseLuaFile(luaString : string){
     lines.forEach(line =>{
         if(line.startsWith("--##") && !line.startsWith("--##use")){
             const callbackName = line.replace("--##", "").trim();
-            modulesPerFunction["TSIL.Enums.CustomCallback." + callbackName] = treeToSet(modulesUsed);
+            const moduleIdentifier = "TSIL.Enums.CustomCallback." + callbackName;
+            modulesPerFunction[moduleIdentifier] = getModulesSetForFunction(moduleIdentifier);
         }
     });
 }

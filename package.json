@@ -13,7 +13,8 @@
   "activationEvents": [
     "onCommand:library-of-isaac-dev-extension.createScriptsFile",
     "onCommand:library-of-isaac-dev-extension.createDocsFile",
-    "onCommand:library-of-isaac-dev-extension.createDependenciesFile"
+    "onCommand:library-of-isaac-dev-extension.createDependenciesFile",
+    "onCommand:library-of-isaac-dev-extension.createModulesFile"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -29,6 +30,10 @@
       {
         "command": "library-of-isaac-dev-extension.createDependenciesFile",
         "title": "Create Dependencies File"
+      },
+      {
+        "command": "library-of-isaac-dev-extension.createModulesFile",
+        "title": "Create Modules File"
       }
     ]
   },
