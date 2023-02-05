@@ -24,3 +24,7 @@ Fixed Dependencies not being created properly for callback files
 ## 1.3.0
 
 Added Create Modules File command
+
+## 1.4.0
+
+Added Create GiBook command

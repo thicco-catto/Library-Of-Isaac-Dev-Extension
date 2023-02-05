@@ -3,18 +3,12 @@
   "publisher": "ThiccoCatto",
   "displayName": "Library Of Isaac Dev Extension",
   "description": "",
-  "version": "0.3.0",
+  "version": "1.4.0",
   "engines": {
     "vscode": "^1.72.0"
   },
   "categories": [
     "Other"
-  ],
-  "activationEvents": [
-    "onCommand:library-of-isaac-dev-extension.createScriptsFile",
-    "onCommand:library-of-isaac-dev-extension.createDocsFile",
-    "onCommand:library-of-isaac-dev-extension.createDependenciesFile",
-    "onCommand:library-of-isaac-dev-extension.createModulesFile"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -34,6 +28,10 @@
       {
         "command": "library-of-isaac-dev-extension.createModulesFile",
         "title": "Create Modules File"
+      },
+      {
+        "command": "library-of-isaac-dev-extension.createGitBook",
+        "title": "Create GitBook Docs"
       }
     ]
   },

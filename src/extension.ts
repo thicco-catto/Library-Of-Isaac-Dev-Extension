@@ -4,6 +4,7 @@ import { TextEncoder } from 'util';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as TSILParser from './TSILParser';
+import { createGitBookDocs } from './CreateGitBook';
 
 
 function findTSILFile(path: string) : string|undefined{
@@ -221,7 +222,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		if(tsilPath === undefined) { return; }
 
-		let docsContent = `---@diagnostic disable: duplicate-doc-alias
+		let docsContent = `---@diagnostic disable: duplicate-doc-alias, duplicate-set-field, missing-return
 _G.TSIL = {}
 
 `;
@@ -365,6 +366,10 @@ _G.TSIL = {}
 	});
 
 	context.subscriptions.push(createModules);
+
+	let createGitBook = vscode.commands.registerCommand('library-of-isaac-dev-extension.createGitBook', createGitBookDocs);
+
+	context.subscriptions.push(createGitBook);
 }
 
 // This method is called when your extension is deactivated
