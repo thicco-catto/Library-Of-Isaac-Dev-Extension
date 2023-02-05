@@ -11,6 +11,13 @@
     "Other"
   ],
   "main": "./out/extension.js",
+  "activationEvents": [
+    "onCommand:library-of-isaac-dev-extension.createScriptsFile",
+    "onCommand:library-of-isaac-dev-extension.createDocsFile",
+    "onCommand:library-of-isaac-dev-extension.createDependenciesFile",
+    "onCommand:library-of-isaac-dev-extension.createModulesFile",
+    "onCommand:library-of-isaac-dev-extension.createGitBook"
+  ],
   "contributes": {
     "commands": [
       {
