@@ -7,11 +7,9 @@ interface TreeNode {
 
 let modulesPerFunction: {[name: string]: Set<string>} = {};
 let commonModules: Set<string> = new Set();
-let hasFoundTSILFunction: boolean = false;
 let modulesUsed: TreeNode = {key: "TSIL", children: []};
 let currentLevel = 0;
 let scopeVariables: {[level: number] : {[id: string] : string;}; };
-let localFunctions: {[name: string]: Set<string>} = {};
 
 
 function isIdentifierTSILModule(name: string) : boolean{
@@ -121,18 +119,28 @@ function onMemberExpression(memberExpression: parser.MemberExpression){
 }
 
 
+function addModulesToCommon(){
+    const newModules = treeToSet(modulesUsed);
+    newModules.forEach(x => commonModules.add(x));
+    resetUsedModules();
+}
+
+
 function onFunctionDeclaration(functionDeclaration: parser.FunctionDeclaration){
     if(functionDeclaration.identifier === undefined || functionDeclaration.identifier === null){ return; }
 
-    if(functionDeclaration.identifier.type !== "MemberExpression"){ return; }
+    if(functionDeclaration.identifier.type !== "MemberExpression"){
+        //This is not a TSIL function
+        addModulesToCommon();
+        return;
+    }
 
     const identifer = getIdentifierFromMemberExpression(functionDeclaration.identifier);
 
-    if(!identifer.startsWith("TSIL")){ return; }
-
-    if(!hasFoundTSILFunction){
-        commonModules = treeToSet(modulesUsed);
-        resetUsedModules();
+    if(!identifer.startsWith("TSIL")){
+        //This is not a TSIL function
+        addModulesToCommon();
+        return;
     }
 
     modulesPerFunction[identifer] = getModulesSetForFunction(identifer);
@@ -232,10 +240,8 @@ export function parseLuaFile(luaString : string){
     currentLevel = 0;
     // eslint-disable-next-line @typescript-eslint/naming-convention
     scopeVariables = {0: {}};
-    localFunctions = {};
     resetUsedModules();
     commonModules = new Set();
-    hasFoundTSILFunction = false;
     parser.parse(luaString, {
         luaVersion: "5.3",
         scope: true,

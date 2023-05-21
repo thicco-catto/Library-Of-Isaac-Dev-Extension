@@ -5,18 +5,19 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as TSILParser from './TSILParser';
 import { createGitBookDocs } from './CreateGitBook';
+import path = require('path');
 
 
-function findTSILFile(path: string) : string|undefined{
-	const files = fs.readdirSync(path);
+function findTSILFile(fullPath: string) : string|undefined{
+	const files = fs.readdirSync(fullPath);
 
 	for (let index = 0; index < files.length; index++) {
 		const file = files[index];
 
 		if(file === "TSIL.lua"){
-			return path;
-		}else if(!/[^a-z]/i.test(file)){
-			const found = findTSILFile(path + "/" + file);
+			return fullPath;
+		}else if(fs.statSync(path.join(fullPath, file)).isDirectory()){
+			const found = findTSILFile(path.join(fullPath, file));
 
 			if(found !== undefined){
 				return found;
@@ -28,13 +29,13 @@ function findTSILFile(path: string) : string|undefined{
 }
 
 
-function readFolderContents(prefix: string, path: string) : string{
+function readFolderContents(prefix: string, fullPath: string) : string{
 	let totalString = "";
-	fs.readdirSync(path).forEach(file => {
+	fs.readdirSync(fullPath).forEach(file => {
 		if(file.endsWith(".lua")){
 			totalString += "\"" + prefix + file.replace(".lua", "") + "\",\n";
-		}else{
-			totalString += readFolderContents(prefix + file + ".", path + "/" + file);
+		}else if(fs.statSync(path.join(fullPath, file)).isDirectory()){
+			totalString += readFolderContents(prefix + file + ".", path.join(fullPath, file));
 		}
 	});
 
@@ -54,11 +55,11 @@ function readFolderContentsShallow(prefix: string, path: string) : string{
 }
 
 
-function readFolderContentsOnlyFolders(prefix: string, path: string) : string{
+function readFolderContentsOnlyFolders(prefix: string, fullPath: string) : string{
 	let totalString = "";
-	fs.readdirSync(path).forEach(file => {
-		if(!file.endsWith(".lua")){
-			totalString += readFolderContents(prefix + file + ".", path + "/" + file);
+	fs.readdirSync(fullPath).forEach(file => {
+		if(fs.statSync(path.join(fullPath, file)).isDirectory()){
+			totalString += readFolderContents(`${prefix}${file}.`, path.join(fullPath, file));
 		}
 	});
 
@@ -170,11 +171,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 			if(file === "TSIL.lua"){
 				break;
-			}else if(!/[^a-z]/i.test(file)){
-				const found = findTSILFile(workspacePath + "/" + file);
+			}else if(fs.statSync(path.join(workspacePath, file)).isDirectory()){
+				const found = findTSILFile(path.join(workspacePath, file));
 
 				if(found !== undefined){
 					workspacePath = found;
+					break;
 				}
 			}
 		}
@@ -182,16 +184,18 @@ export function activate(context: vscode.ExtensionContext) {
 		const filePath = vscode.Uri.file(workspacePath + '/scripts.lua');
 
 		//First read the enums folder
-		luacontents += readFolderContents("Enums.", workspacePath + "/Enums");
+		luacontents += readFolderContents("Enums.", path.join(workspacePath, "Enums"));
 
 		//Then read the custom callbacks
-		luacontents += readFolderContentsShallow("CustomCallbacks.", workspacePath + "/CustomCallbacks");
-		luacontents += readFolderContentsOnlyFolders("CustomCallbacks.", workspacePath + "/CustomCallbacks");
+		luacontents += readFolderContentsShallow("CustomCallbacks.", path.join(workspacePath, "CustomCallbacks"));
+		luacontents += readFolderContentsOnlyFolders("CustomCallbacks.", path.join(workspacePath, "/CustomCallbacks"));
 
+
+		console.log("Starting");
 		//Then read the rest
 		fs.readdirSync(workspacePath).forEach(file => {
-			if(file !== "Enums" && !/[^a-z]/i.test(file)){
-				luacontents += readFolderContents(file + ".", workspacePath + "/" + file);
+			if(file !== "Enums" && fs.lstatSync(path.join(workspacePath, file)).isDirectory()){
+				luacontents += readFolderContents(file + ".", path.join(workspacePath, file));
 			}
 		});
 
