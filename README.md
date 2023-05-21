@@ -28,3 +28,7 @@ Added Create Modules File command
 ## 1.4.0
 
 Added Create GiBook command
+
+## 1.4.1
+
+Fixed common Dependencies not being correctly read
