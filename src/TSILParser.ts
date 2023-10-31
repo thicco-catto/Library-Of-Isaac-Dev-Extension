@@ -258,6 +258,51 @@ export function parseLuaFile(luaString : string){
             modulesPerFunction[moduleIdentifier] = getModulesSetForFunction(moduleIdentifier);
         }
     });
+
+    const cleanCommonModules: Set<string> = new Set();
+    commonModules.forEach(x => {
+        if(x === "TSIL") {
+            return;
+        }
+
+        if(x.startsWith("TSIL.Enums") && !x.startsWith("TSIL.Enums.CustomCallback")) {
+            const tokens = x.split(".");
+            
+            cleanCommonModules.add(`${tokens[0]}.${tokens[1]}.${tokens[2]}`);
+
+            return;
+        }
+
+        cleanCommonModules.add(x);
+    });
+
+    const cleanModulesPerFunction: {[name: string]: Set<string>} = {};
+    for (const funct in modulesPerFunction) {
+        const modules = modulesPerFunction[funct];
+        const cleanModules: Set<string> = new Set();
+
+        modules.forEach(x => {
+            if(x === "TSIL") {
+                return;
+            }
+    
+            if(x.startsWith("TSIL.Enums") && !x.startsWith("TSIL.Enums.CustomCallback")) {
+                const tokens = x.split(".");
+                
+                cleanModules.add(`${tokens[0]}.${tokens[1]}.${tokens[2]}`);
+
+                return;
+            }
+    
+            cleanModules.add(x);
+        });
+        cleanModulesPerFunction[funct] = cleanModules;
+    }
+
+    return {
+        commonModules: cleanCommonModules,
+        modulesPerFunction: cleanModulesPerFunction
+    };
 }
 
 

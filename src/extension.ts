@@ -8,6 +8,23 @@ import { createGitBookDocs } from './CreateGitBook';
 import path = require('path');
 
 
+interface FileDependencyInfo {
+	functions: string[],
+	modules: Set<string>
+}
+
+interface FunctionDependencyInfo {
+	modules: Set<string>,
+	file: string,
+	requiredFiles: string[]
+}
+
+interface Dependencies {
+	files: {[key: string]: FileDependencyInfo},
+	functions: {[key: string]: FunctionDependencyInfo}
+}
+
+
 function findTSILFile(fullPath: string) : string|undefined{
 	const files = fs.readdirSync(fullPath);
 
@@ -76,18 +93,32 @@ function readDocsFromFile(file: string): string{
 
 	let isReadingDocs = false;
 	let isReadingEnum = false;
+	let isReadingClass = false;
 
 	fileLines.forEach(element => {
+		if(file.includes("CallbackReturnMode")){
+			console.log(element);
+		}
+
 		if(isReadingDocs){
 			if(isReadingEnum){
 				docsPerFunction += element + "\n";
-				if(element.startsWith("}")){
+				if(element.trim().startsWith("}")){
 					fileDocs += docsPerFunction + "\n";
 					isReadingDocs = false;
 				}
+			} else if (isReadingClass) {
+				docsPerFunction += element + "\n";
+				if(!element.startsWith("---")) {
+					fileDocs += docsPerFunction + "\n";
+					isReadingDocs = false;
+				};
 			}else{
 				if(element.startsWith("---")){
 					docsPerFunction += element + "\n";
+
+					isReadingEnum = element.startsWith("---@enum") || element.startsWith("--- @enum");
+					isReadingClass = element.startsWith("---@class") || element.startsWith("--- @class");
 				}else{
 					if(element.startsWith("function TSIL")){
 						docsPerFunction += element + "\nend\n\n";
@@ -103,7 +134,9 @@ function readDocsFromFile(file: string): string{
 				docsPerFunction = "";
 				docsPerFunction += element + "\n";
 				isReadingDocs = true;
+
 				isReadingEnum = element.startsWith("---@enum") || element.startsWith("--- @enum");
+				isReadingClass = element.startsWith("---@class") || element.startsWith("--- @class");
 			}
 		}
 	});
@@ -129,20 +162,83 @@ function readDocsFromDirectory(path: string): string{
 
 function readDependenciesFromFile(file: string){
 	const fileContents = fs.readFileSync(file, 'utf-8');
+	const lines = fileContents.split("\n");
+	const requiredFiles: string[] = [];
 
-	TSILParser.parseLuaFile(fileContents);
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		
+		if(!line.startsWith("--##")) {
+			break;
+		}
+
+		if(line.startsWith("--##use")) {
+			requiredFiles.push(line.replace("--##use", "").trim());
+		}
+	}
+
+	TSILParser.resetModulesPerFunction();
+	TSILParser.resetUsedModules();
+
+	const result = TSILParser.parseLuaFile(fileContents);
+
+	const fileInfo: FileDependencyInfo = {
+		functions: [],
+		modules: new Set()
+	};
+
+	result.commonModules.forEach(x => fileInfo.modules.add(x));
+
+	const functions: {[key: string]: FunctionDependencyInfo} = {};
+
+	for (const funct in result.modulesPerFunction) {
+		const modules = result.modulesPerFunction[funct];
+
+		modules.forEach(x => fileInfo.modules.add(x));
+		result.commonModules.forEach(x => modules.add(x));
+
+		fileInfo.functions.push(funct);
+		functions[funct] = {
+			file: file,
+			requiredFiles: requiredFiles,
+			modules: modules
+		};
+	}
+
+	return {
+		file: fileInfo,
+		functions: functions
+	};
 }
 
 
-function readDependenciesFromDirectory(path: string){
+function readDependenciesFromDirectory(path: string) {
+	const dependencies: Dependencies = {
+		files: {},
+		functions: {}
+	};
 
 	fs.readdirSync(path).forEach(file => {
 		if(file.endsWith(".lua")){
-			readDependenciesFromFile(path + "/" + file);
+			const fileDependencies = readDependenciesFromFile(path + "/" + file);
+			dependencies.files[path + "/" + file] = fileDependencies.file;
+			for (const funct in fileDependencies.functions) {
+				const modules = fileDependencies.functions[funct];
+				dependencies.functions[funct] = modules;
+			}
 		}else if(fs.lstatSync(path + "/" + file).isDirectory()){
-			readDependenciesFromDirectory(path + "/" + file);
+			const dirDependencies = readDependenciesFromDirectory(path + "/" + file);
+			for (const filePath in dirDependencies.files) {
+				dependencies.files[filePath] = dirDependencies.files[filePath];
+			}
+
+			for (const funct in dirDependencies.functions) {
+				dependencies.functions[funct] = dirDependencies.functions[funct];
+			}
 		}
 	});
+
+	return dependencies;
 }
 
 
@@ -226,10 +322,42 @@ export function activate(context: vscode.ExtensionContext) {
 
 		if(tsilPath === undefined) { return; }
 
+		TSILParser.resetModulesPerFunction();
+
+		fs.readdirSync(tsilPath).forEach(file => {
+			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
+				readDependenciesFromDirectory(tsilPath + "/" + file);
+			}
+		});
+
+		const dependencies = TSILParser.getModulesPerFunction();
+		const modules: Set<String> = new Set<String>();
+
+		for (const funct in dependencies) {
+			const tokens = funct.split(".");
+			const module: String[] = [];
+
+			for (let i = 0; i < tokens.length-1; i++) {
+				const element = tokens[i];
+				
+				module.push(element);
+
+				if(module.length > 1){
+					modules.add(module.join("."));
+				}
+			}
+		}
+
 		let docsContent = `---@diagnostic disable: duplicate-doc-alias, duplicate-set-field, missing-return
 _G.TSIL = {}
 
 `;
+
+		modules.forEach(module => {
+			docsContent += `${module} = {}\n`;
+		});
+
+		docsContent += "\n";
 
 		fs.readdirSync(tsilPath).forEach(file => {
 			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
@@ -270,29 +398,54 @@ _G.TSIL = {}
 
 		TSILParser.resetModulesPerFunction();
 
+		const dependencies: Dependencies = {
+			files: {},
+			functions: {}
+		};
+
 		fs.readdirSync(tsilPath).forEach(file => {
 			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
-				readDependenciesFromDirectory(tsilPath + "/" + file);
+				const dirDependencies = readDependenciesFromDirectory(tsilPath + "/" + file);
+
+				for (const filePath in dirDependencies.files) {
+					dependencies.files[filePath] = dirDependencies.files[filePath];
+				}
+	
+				for (const funct in dirDependencies.functions) {
+					dependencies.functions[funct] = dirDependencies.functions[funct];
+				}
 			}
 		});
 
-		const dependencies = TSILParser.getModulesPerFunction();
-		const dependenciesSerializable: {[key: string]: string[]} = {};
-
-		for (const key in dependencies) {
-			if (Object.prototype.hasOwnProperty.call(dependencies, key)) {
-				const element = dependencies[key];
-				dependenciesSerializable[key] = [];
-
-				element.forEach(s => {
-					if(s !== "TSIL"){
-						dependenciesSerializable[key].push(s);
-					}
-				});
-			}
+		const serializableFiles: any = {};
+		for (const filePath in dependencies.files) {
+			const fileDependencies = dependencies.files[filePath];
+			const modules: string[] = [];
+			fileDependencies.modules.forEach(x => modules.push(x));
+			serializableFiles[filePath.replace(tsilPath + "/", "")] = {
+				functions: fileDependencies.functions,
+				modules: modules
+			};
 		}
 
-		const dependenciesJson = JSON.stringify(dependenciesSerializable);
+		const serializableFunctions: any = {};
+		for (const funct in dependencies.functions) {
+			const functionDependencies = dependencies.functions[funct];
+			const modules: string[] = [];
+			functionDependencies.modules.forEach(x => modules.push(x));
+			serializableFunctions[funct] = {
+				file: functionDependencies.file.replace(tsilPath + "/", ""),
+				requiredFiles: functionDependencies.requiredFiles.map(x => x.replace(tsilPath + "/", "")),
+				modules: modules
+			};
+		}
+
+		const serializableDependencies: any = {
+			files: serializableFiles,
+			functions: serializableFunctions
+		};
+
+		const dependenciesJson = JSON.stringify(serializableDependencies);
 
 		const filePath = vscode.Uri.file(tsilPath + '/dependencies.json');
 		const encoder = new TextEncoder();
