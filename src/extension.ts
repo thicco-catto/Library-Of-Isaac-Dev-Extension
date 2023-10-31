@@ -187,6 +187,9 @@ function readDependenciesFromFile(file: string){
 		modules: new Set()
 	};
 
+	const usedModules = TSILParser.getUsedModules();
+	usedModules.forEach(x => result.commonModules.add(x));
+
 	result.commonModules.forEach(x => fileInfo.modules.add(x));
 
 	const functions: {[key: string]: FunctionDependencyInfo} = {};
@@ -435,7 +438,7 @@ _G.TSIL = {}
 			functionDependencies.modules.forEach(x => modules.push(x));
 			serializableFunctions[funct] = {
 				file: functionDependencies.file.replace(tsilPath + "/", ""),
-				requiredFiles: functionDependencies.requiredFiles.map(x => x.replace(tsilPath + "/", "")),
+				requiredFiles: functionDependencies.requiredFiles,
 				modules: modules
 			};
 		}

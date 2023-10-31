@@ -43,7 +43,12 @@ function getIdentifierFromMemberExpression(init: parser.MemberExpression) : stri
         if(isIdentifierTSILModule(init.base.name)){
             return getTSILModuleFromIdentifier(init.base.name) + "." + init.identifier.name;
         }else{
-            return init.base.name + "." + init.identifier.name;
+            let fixedName = init.base.name;
+
+            while(fixedName.startsWith("end")) {
+                fixedName = fixedName.substring(3);    
+            }
+            return fixedName + "." + init.identifier.name;
         }
     }else if(init.base.type === "MemberExpression"){
         return getIdentifierFromMemberExpression(init.base) + "." + init.identifier.name;
@@ -308,6 +313,7 @@ export function parseLuaFile(luaString : string){
 
 function treeToSet(tree: TreeNode, prefix = "", used = new Set<string>): Set<string>{
     if(tree.children.length === 0){
+        if(prefix + tree.key === "TSIL") { return used; }
         return used.add(prefix + tree.key);
     }else{
         tree.children.forEach(child => {
