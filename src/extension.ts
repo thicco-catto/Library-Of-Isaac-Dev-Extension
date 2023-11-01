@@ -20,23 +20,23 @@ interface FunctionDependencyInfo {
 }
 
 interface Dependencies {
-	files: {[key: string]: FileDependencyInfo},
-	functions: {[key: string]: FunctionDependencyInfo}
+	files: { [key: string]: FileDependencyInfo },
+	functions: { [key: string]: FunctionDependencyInfo }
 }
 
 
-function findTSILFile(fullPath: string) : string|undefined{
+function findTSILFile(fullPath: string): string | undefined {
 	const files = fs.readdirSync(fullPath);
 
 	for (let index = 0; index < files.length; index++) {
 		const file = files[index];
 
-		if(file === "TSIL.lua"){
+		if (file === "TSIL.lua") {
 			return fullPath;
-		}else if(fs.statSync(path.join(fullPath, file)).isDirectory()){
+		} else if (fs.statSync(path.join(fullPath, file)).isDirectory()) {
 			const found = findTSILFile(path.join(fullPath, file));
 
-			if(found !== undefined){
+			if (found !== undefined) {
 				return found;
 			}
 		}
@@ -46,12 +46,12 @@ function findTSILFile(fullPath: string) : string|undefined{
 }
 
 
-function readFolderContents(prefix: string, fullPath: string) : string{
+function readFolderContents(prefix: string, fullPath: string): string {
 	let totalString = "";
 	fs.readdirSync(fullPath).forEach(file => {
-		if(file.endsWith(".lua")){
+		if (file.endsWith(".lua")) {
 			totalString += "\"" + prefix + file.replace(".lua", "") + "\",\n";
-		}else if(fs.statSync(path.join(fullPath, file)).isDirectory()){
+		} else if (fs.statSync(path.join(fullPath, file)).isDirectory()) {
 			totalString += readFolderContents(prefix + file + ".", path.join(fullPath, file));
 		}
 	});
@@ -60,10 +60,10 @@ function readFolderContents(prefix: string, fullPath: string) : string{
 }
 
 
-function readFolderContentsShallow(prefix: string, path: string) : string{
+function readFolderContentsShallow(prefix: string, path: string): string {
 	let totalString = "";
 	fs.readdirSync(path).forEach(file => {
-		if(file.endsWith(".lua")){
+		if (file.endsWith(".lua")) {
 			totalString += "\"" + prefix + file.replace(".lua", "") + "\",\n";
 		}
 	});
@@ -72,10 +72,10 @@ function readFolderContentsShallow(prefix: string, path: string) : string{
 }
 
 
-function readFolderContentsOnlyFolders(prefix: string, fullPath: string) : string{
+function readFolderContentsOnlyFolders(prefix: string, fullPath: string): string {
 	let totalString = "";
 	fs.readdirSync(fullPath).forEach(file => {
-		if(fs.statSync(path.join(fullPath, file)).isDirectory()){
+		if (fs.statSync(path.join(fullPath, file)).isDirectory()) {
 			totalString += readFolderContents(`${prefix}${file}.`, path.join(fullPath, file));
 		}
 	});
@@ -84,7 +84,7 @@ function readFolderContentsOnlyFolders(prefix: string, fullPath: string) : strin
 }
 
 
-function readDocsFromFile(file: string): string{
+function readDocsFromFile(file: string): string {
 	const fileContents = fs.readFileSync(file, 'utf-8');
 	const fileLines = fileContents.split("\n");
 
@@ -96,31 +96,27 @@ function readDocsFromFile(file: string): string{
 	let isReadingClass = false;
 
 	fileLines.forEach(element => {
-		if(file.includes("CallbackReturnMode")){
-			console.log(element);
-		}
-
-		if(isReadingDocs){
-			if(isReadingEnum){
+		if (isReadingDocs) {
+			if (isReadingEnum) {
 				docsPerFunction += element + "\n";
-				if(element.trim().startsWith("}")){
+				if (element.trim().startsWith("}")) {
 					fileDocs += docsPerFunction + "\n";
 					isReadingDocs = false;
 				}
 			} else if (isReadingClass) {
 				docsPerFunction += element + "\n";
-				if(!element.startsWith("---")) {
+				if (!element.startsWith("---")) {
 					fileDocs += docsPerFunction + "\n";
 					isReadingDocs = false;
 				};
-			}else{
-				if(element.startsWith("---")){
+			} else {
+				if (element.startsWith("---")) {
 					docsPerFunction += element + "\n";
 
 					isReadingEnum = element.startsWith("---@enum") || element.startsWith("--- @enum");
 					isReadingClass = element.startsWith("---@class") || element.startsWith("--- @class");
-				}else{
-					if(element.startsWith("function TSIL")){
+				} else {
+					if (element.startsWith("function TSIL")) {
 						docsPerFunction += element + "\nend\n\n";
 
 						fileDocs += docsPerFunction;
@@ -129,8 +125,8 @@ function readDocsFromFile(file: string): string{
 					isReadingDocs = false;
 				}
 			}
-		}else{
-			if(element.startsWith("---")){
+		} else {
+			if (element.startsWith("---")) {
 				docsPerFunction = "";
 				docsPerFunction += element + "\n";
 				isReadingDocs = true;
@@ -145,13 +141,13 @@ function readDocsFromFile(file: string): string{
 }
 
 
-function readDocsFromDirectory(path: string): string{
+function readDocsFromDirectory(path: string): string {
 	let docs = "";
 
 	fs.readdirSync(path).forEach(file => {
-		if(file.endsWith(".lua")){
+		if (file.endsWith(".lua")) {
 			docs += readDocsFromFile(path + "/" + file);
-		}else if(fs.lstatSync(path + "/" + file).isDirectory()){
+		} else if (fs.lstatSync(path + "/" + file).isDirectory()) {
 			docs += readDocsFromDirectory(path + "/" + file);
 		}
 	});
@@ -160,19 +156,19 @@ function readDocsFromDirectory(path: string): string{
 }
 
 
-function readDependenciesFromFile(file: string){
+function readDependenciesFromFile(file: string) {
 	const fileContents = fs.readFileSync(file, 'utf-8');
 	const lines = fileContents.split("\n");
 	const requiredFiles: string[] = [];
 
 	for (let i = 0; i < lines.length; i++) {
 		const line = lines[i];
-		
-		if(!line.startsWith("--##")) {
+
+		if (!line.startsWith("--##")) {
 			break;
 		}
 
-		if(line.startsWith("--##use")) {
+		if (line.startsWith("--##use")) {
 			requiredFiles.push(line.replace("--##use", "").trim());
 		}
 	}
@@ -192,7 +188,7 @@ function readDependenciesFromFile(file: string){
 
 	result.commonModules.forEach(x => fileInfo.modules.add(x));
 
-	const functions: {[key: string]: FunctionDependencyInfo} = {};
+	const functions: { [key: string]: FunctionDependencyInfo } = {};
 
 	for (const funct in result.modulesPerFunction) {
 		const modules = result.modulesPerFunction[funct];
@@ -222,14 +218,14 @@ function readDependenciesFromDirectory(path: string) {
 	};
 
 	fs.readdirSync(path).forEach(file => {
-		if(file.endsWith(".lua")){
+		if (file.endsWith(".lua")) {
 			const fileDependencies = readDependenciesFromFile(path + "/" + file);
 			dependencies.files[path + "/" + file] = fileDependencies.file;
 			for (const funct in fileDependencies.functions) {
 				const modules = fileDependencies.functions[funct];
 				dependencies.functions[funct] = modules;
 			}
-		}else if(fs.lstatSync(path + "/" + file).isDirectory()){
+		} else if (fs.lstatSync(path + "/" + file).isDirectory()) {
 			const dirDependencies = readDependenciesFromDirectory(path + "/" + file);
 			for (const filePath in dirDependencies.files) {
 				dependencies.files[filePath] = dirDependencies.files[filePath];
@@ -255,7 +251,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const workspaceEdit = new vscode.WorkspaceEdit();
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 
-		if(workspaceFolders === undefined){ return; }
+		if (workspaceFolders === undefined) { return; }
 
 		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
 
@@ -268,12 +264,12 @@ export function activate(context: vscode.ExtensionContext) {
 		for (let index = 0; index < files.length; index++) {
 			const file = files[index];
 
-			if(file === "TSIL.lua"){
+			if (file === "TSIL.lua") {
 				break;
-			}else if(fs.statSync(path.join(workspacePath, file)).isDirectory()){
+			} else if (fs.statSync(path.join(workspacePath, file)).isDirectory()) {
 				const found = findTSILFile(path.join(workspacePath, file));
 
-				if(found !== undefined){
+				if (found !== undefined) {
 					workspacePath = found;
 					break;
 				}
@@ -293,14 +289,14 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log("Starting");
 		//Then read the rest
 		fs.readdirSync(workspacePath).forEach(file => {
-			if(file !== "Enums" && fs.lstatSync(path.join(workspacePath, file)).isDirectory()){
+			if (file !== "Enums" && fs.lstatSync(path.join(workspacePath, file)).isDirectory()) {
 				luacontents += readFolderContents(file + ".", path.join(workspacePath, file));
 			}
 		});
 
 		luacontents += "}\nreturn TSIL_SCRIPTS";
 
-		workspaceEdit.createFile(filePath, { 
+		workspaceEdit.createFile(filePath, {
 			overwrite: true,
 			ignoreIfExists: true,
 			contents: encoder.encode(luacontents)
@@ -317,39 +313,37 @@ export function activate(context: vscode.ExtensionContext) {
 		const workspaceEdit = new vscode.WorkspaceEdit();
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 
-		if(workspaceFolders === undefined){ return; }
+		if (workspaceFolders === undefined) { return; }
 
 		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
 
 		const tsilPath = findTSILFile(workspacePath);
 
-		if(tsilPath === undefined) { return; }
+		if (tsilPath === undefined) { return; }
 
 		TSILParser.resetModulesPerFunction();
-
-		fs.readdirSync(tsilPath).forEach(file => {
-			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
-				readDependenciesFromDirectory(tsilPath + "/" + file);
-			}
-		});
-
-		const dependencies = TSILParser.getModulesPerFunction();
 		const modules: Set<String> = new Set<String>();
 
-		for (const funct in dependencies) {
-			const tokens = funct.split(".");
-			const module: String[] = [];
+		fs.readdirSync(tsilPath).forEach(file => {
+			if (fs.lstatSync(tsilPath + "/" + file).isDirectory()) {
+				const dependencies = readDependenciesFromDirectory(tsilPath + "/" + file);
 
-			for (let i = 0; i < tokens.length-1; i++) {
-				const element = tokens[i];
-				
-				module.push(element);
+				for (const funct in dependencies.functions) {
+					const tokens = funct.split(".");
+					const module: String[] = [];
 
-				if(module.length > 1){
-					modules.add(module.join("."));
+					for (let i = 0; i < tokens.length - 1; i++) {
+						const element = tokens[i];
+
+						module.push(element);
+
+						if (module.length > 1) {
+							modules.add(module.join("."));
+						}
+					}
 				}
 			}
-		}
+		});
 
 		let docsContent = `---@diagnostic disable: duplicate-doc-alias, duplicate-set-field, missing-return
 _G.TSIL = {}
@@ -357,13 +351,14 @@ _G.TSIL = {}
 `;
 
 		modules.forEach(module => {
+			console.log(module);
 			docsContent += `${module} = {}\n`;
 		});
 
 		docsContent += "\n";
 
 		fs.readdirSync(tsilPath).forEach(file => {
-			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
+			if (fs.lstatSync(tsilPath + "/" + file).isDirectory()) {
 				docsContent = docsContent + readDocsFromDirectory(tsilPath + "/" + file);
 			}
 		});
@@ -371,7 +366,7 @@ _G.TSIL = {}
 		const filePath = vscode.Uri.file(tsilPath + '/docs.lua');
 		const encoder = new TextEncoder();
 
-		workspaceEdit.createFile(filePath, { 
+		workspaceEdit.createFile(filePath, {
 			overwrite: true,
 			ignoreIfExists: true,
 			contents: encoder.encode(docsContent)
@@ -388,13 +383,13 @@ _G.TSIL = {}
 		const workspaceEdit = new vscode.WorkspaceEdit();
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 
-		if(workspaceFolders === undefined){ return; }
+		if (workspaceFolders === undefined) { return; }
 
 		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
 
 		const tsilPath = findTSILFile(workspacePath);
 
-		if(tsilPath === undefined) {
+		if (tsilPath === undefined) {
 			vscode.window.showErrorMessage('Can\'t find the TSIL.lua file');
 			return;
 		}
@@ -407,13 +402,13 @@ _G.TSIL = {}
 		};
 
 		fs.readdirSync(tsilPath).forEach(file => {
-			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
+			if (fs.lstatSync(tsilPath + "/" + file).isDirectory()) {
 				const dirDependencies = readDependenciesFromDirectory(tsilPath + "/" + file);
 
 				for (const filePath in dirDependencies.files) {
 					dependencies.files[filePath] = dirDependencies.files[filePath];
 				}
-	
+
 				for (const funct in dirDependencies.functions) {
 					dependencies.functions[funct] = dirDependencies.functions[funct];
 				}
@@ -453,7 +448,7 @@ _G.TSIL = {}
 		const filePath = vscode.Uri.file(tsilPath + '/dependencies.json');
 		const encoder = new TextEncoder();
 
-		workspaceEdit.createFile(filePath, { 
+		workspaceEdit.createFile(filePath, {
 			overwrite: true,
 			ignoreIfExists: true,
 			contents: encoder.encode(dependenciesJson)
@@ -470,13 +465,13 @@ _G.TSIL = {}
 		const workspaceEdit = new vscode.WorkspaceEdit();
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 
-		if(workspaceFolders === undefined){ return; }
+		if (workspaceFolders === undefined) { return; }
 
 		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
 
 		const tsilPath = findTSILFile(workspacePath);
 
-		if(tsilPath === undefined) {
+		if (tsilPath === undefined) {
 			vscode.window.showErrorMessage('Can\'t find the TSIL.lua file');
 			return;
 		}
@@ -484,7 +479,7 @@ _G.TSIL = {}
 		TSILParser.resetModulesPerFunction();
 
 		fs.readdirSync(tsilPath).forEach(file => {
-			if(fs.lstatSync(tsilPath + "/" + file).isDirectory()){
+			if (fs.lstatSync(tsilPath + "/" + file).isDirectory()) {
 				readDependenciesFromDirectory(tsilPath + "/" + file);
 			}
 		});
@@ -496,12 +491,12 @@ _G.TSIL = {}
 			const tokens = funct.split(".");
 			const module: String[] = [];
 
-			for (let i = 0; i < tokens.length-1; i++) {
+			for (let i = 0; i < tokens.length - 1; i++) {
 				const element = tokens[i];
-				
+
 				module.push(element);
 
-				if(module.length > 1){
+				if (module.length > 1) {
 					modules.add(module.join("."));
 				}
 			}
@@ -515,7 +510,7 @@ _G.TSIL = {}
 		const filePath = vscode.Uri.file(tsilPath + '/modules.lua');
 		const encoder = new TextEncoder();
 
-		workspaceEdit.createFile(filePath, { 
+		workspaceEdit.createFile(filePath, {
 			overwrite: true,
 			ignoreIfExists: true,
 			contents: encoder.encode(modulesArr.join("\n"))
@@ -533,4 +528,4 @@ _G.TSIL = {}
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() { }
