@@ -761,7 +761,6 @@ function writeSummary(path: string){
         }
     }
 
-    console.log(modulesToAdd);
     fileContents += writeSubModulesToSummary(path, modulesToAdd, "", 0);
 
     const filePath = vscode.Uri.file(path + `/SUMMARY.md`);

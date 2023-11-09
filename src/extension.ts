@@ -351,7 +351,6 @@ _G.TSIL = {}
 `;
 
 		modules.forEach(module => {
-			console.log(module);
 			docsContent += `${module} = {}\n`;
 		});
 
@@ -459,68 +458,6 @@ _G.TSIL = {}
 	});
 
 	context.subscriptions.push(createDependencies);
-
-
-	let createModules = vscode.commands.registerCommand('library-of-isaac-dev-extension.createModulesFile', () => {
-		const workspaceEdit = new vscode.WorkspaceEdit();
-		const workspaceFolders = vscode.workspace.workspaceFolders;
-
-		if (workspaceFolders === undefined) { return; }
-
-		let workspacePath = workspaceFolders[0].uri.fsPath; // gets the path of the first workspace folder
-
-		const tsilPath = findTSILFile(workspacePath);
-
-		if (tsilPath === undefined) {
-			vscode.window.showErrorMessage('Can\'t find the TSIL.lua file');
-			return;
-		}
-
-		TSILParser.resetModulesPerFunction();
-
-		fs.readdirSync(tsilPath).forEach(file => {
-			if (fs.lstatSync(tsilPath + "/" + file).isDirectory()) {
-				readDependenciesFromDirectory(tsilPath + "/" + file);
-			}
-		});
-
-		const dependencies = TSILParser.getModulesPerFunction();
-		const modules: Set<String> = new Set<String>();
-
-		for (const funct in dependencies) {
-			const tokens = funct.split(".");
-			const module: String[] = [];
-
-			for (let i = 0; i < tokens.length - 1; i++) {
-				const element = tokens[i];
-
-				module.push(element);
-
-				if (module.length > 1) {
-					modules.add(module.join("."));
-				}
-			}
-		}
-
-		const modulesArr: String[] = [];
-		modules.forEach(module => {
-			modulesArr.push(`${module} = {}`);
-		});
-
-		const filePath = vscode.Uri.file(tsilPath + '/modules.lua');
-		const encoder = new TextEncoder();
-
-		workspaceEdit.createFile(filePath, {
-			overwrite: true,
-			ignoreIfExists: true,
-			contents: encoder.encode(modulesArr.join("\n"))
-		});
-		vscode.workspace.applyEdit(workspaceEdit);
-
-		vscode.window.showInformationMessage('Created modules file');
-	});
-
-	context.subscriptions.push(createModules);
 
 	let createGitBook = vscode.commands.registerCommand('library-of-isaac-dev-extension.createGitBook', createGitBookDocs);
 

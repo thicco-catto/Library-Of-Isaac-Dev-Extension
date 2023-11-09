@@ -3,7 +3,7 @@
   "publisher": "ThiccoCatto",
   "displayName": "Library Of Isaac Dev Extension",
   "description": "",
-  "version": "1.4.1",
+  "version": "2.0.0",
   "engines": {
     "vscode": "^1.72.0"
   },
@@ -11,34 +11,23 @@
     "Other"
   ],
   "main": "./out/extension.js",
-  "activationEvents": [
-    "onCommand:library-of-isaac-dev-extension.createScriptsFile",
-    "onCommand:library-of-isaac-dev-extension.createDocsFile",
-    "onCommand:library-of-isaac-dev-extension.createDependenciesFile",
-    "onCommand:library-of-isaac-dev-extension.createModulesFile",
-    "onCommand:library-of-isaac-dev-extension.createGitBook"
-  ],
   "contributes": {
     "commands": [
       {
         "command": "library-of-isaac-dev-extension.createScriptsFile",
-        "title": "Create Scripts"
+        "title": "LoI Dev: Create Scripts"
       },
       {
         "command": "library-of-isaac-dev-extension.createDocsFile",
-        "title": "Create Docs File"
+        "title": "LoI Dev: Create Docs File"
       },
       {
         "command": "library-of-isaac-dev-extension.createDependenciesFile",
-        "title": "Create Dependencies File"
-      },
-      {
-        "command": "library-of-isaac-dev-extension.createModulesFile",
-        "title": "Create Modules File"
+        "title": "LoI Dev: Create Dependencies File"
       },
       {
         "command": "library-of-isaac-dev-extension.createGitBook",
-        "title": "Create GitBook Docs"
+        "title": "LoI Dev: Create GitBook Docs"
       }
     ]
   },
